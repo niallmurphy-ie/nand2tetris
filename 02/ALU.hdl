@@ -73,5 +73,5 @@ CHIP ALU {
     Not(in=Either, out=zr);
     // ng
     And(a=outNeg, b=true, out=ng);
-4
+
 }
