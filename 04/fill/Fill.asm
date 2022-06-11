@@ -47,7 +47,7 @@
 			@LOOP
 			D+1;JEQ // Go back to start if back to SCREEN
 
-			// Print
+			// PrintD
 			@colour
 			D=M
 			// Set colour

@@ -6,23 +6,23 @@
 /**
  * The Hack CPU (Central Processing unit), consisting of an ALU,
  * two registers named A and D, and a program counter named PC.
- * The CPU is designed to fetch and execute instructions written in 
+ * The CPU is designed to fetch and execute instructions written in
  * the Hack machine language. In particular, functions as follows:
- * Executes the inputted instruction according to the Hack machine 
+ * Executes the inputted instruction according to the Hack machine
  * language specification. The D and A in the language specification
  * refer to CPU-resident registers, while M refers to the external
- * memory location addressed by A, i.e. to Memory[A]. The inM input 
- * holds the value of this location. If the current instruction needs 
- * to write a value to M, the value is placed in outM, the address 
- * of the target location is placed in the addressM output, and the 
- * writeM control bit is asserted. (When writeM==0, any value may 
- * appear in outM). The outM and writeM outputs are combinational: 
- * they are affected instantaneously by the execution of the current 
- * instruction. The addressM and pc outputs are clocked: although they 
- * are affected by the execution of the current instruction, they commit 
- * to their new values only in the next time step. If reset==1 then the 
- * CPU jumps to address 0 (i.e. pc is set to 0 in next time step) rather 
- * than to the address resulting from executing the current instruction. 
+ * memory location addressed by A, i.e. to Memory[A]. The inM input
+ * holds the value of this location. If the current instruction needs
+ * to write a value to M, the value is placed in outM, the address
+ * of the target location is placed in the addressM output, and the
+ * writeM control bit is asserted. (When writeM==0, any value may
+ * appear in outM). The outM and writeM outputs are combinational:
+ * they are affected instantaneously by the execution of the current
+ * instruction. The addressM and pc outputs are clocked: although they
+ * are affected by the execution of the current instruction, they commit
+ * to their new values only in the next time step. If reset==1 then the
+ * CPU jumps to address 0 (i.e. pc is set to 0 in next time step) rather
+ * than to the address resulting from executing the current instruction.
  */
 
 CHIP CPU {
@@ -34,10 +34,88 @@ CHIP CPU {
                          // the current program (reset==0).
 
     OUT outM[16],        // M value output
-        writeM,          // Write to M? 
+        writeM,          // Write to M?
         addressM[15],    // Address in data memory (of M)
         pc[15];          // address of next instruction
 
     PARTS:
     // Put your code here:
+        Not(in=instruction[15], out=notInstruction);
+        Mux16(a=aluOutToMux, b=instruction, sel=notInstruction, out=instructionOut);
+
+        // A
+        // [5] is 1xx in the d1,d2,d3 part of C instruction
+        // [15] checks of C
+        Or(a=notInstruction, b=instruction[5], out=storeInA);
+        ARegister(
+            in=instructionOut, load=storeInA,
+            out=aRegisterOut,
+            out[0..14]=addressM,
+            out=aToPC
+        );
+
+        // A or M comes from the "a" part of instruction
+        And(a=instruction[15],b=instruction[12],out=aOrM);
+        Mux16(a=aRegisterOut, b=inM, sel=aOrM, out=aOrInMMuxOut);
+        ALU(
+            x=dOut, y=aOrInMMuxOut, zx=instruction[11], nx=instruction[10],
+            zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6],
+            out=aluOutToD,
+            out=aluOutToMux,
+            out=outM,
+            zr=zr, ng=ng
+        );
+
+        // D
+        // [4] is x1x in the d1,d2,d3 part of C instruction
+        // [15] checks of C
+        And(a=instruction[15], b=instruction[4], out=storeInD);
+        DRegister(in=aluOutToD, load=storeInD, out=dOut);
+
+        // writeM
+        // [3] is xx1 in the d1,d2,d3 part of C instruction
+        // [15] checks of C
+        And(a=instruction[15], b=instruction[3], out=writeM);
+
+        // Jumps
+        // zr, // 1 if out=0, 0 otherwise
+        // ng; // 1 if out<0, 0 otherwise
+
+        // null 0 0 0 - No jump
+        And(a=instruction[0], b=false, out=false0);
+        Xor(a=false0, b=instruction[1], out=false01);
+        Xor(a=false01, b=instruction[2], out=nullJump);
+        Not(in=nullJump, out=notNullJump);
+
+        // JGT, JEQ, JGE, all jump if j1==0 && ng=0
+        And(a=instruction[2], b=false, out=j10);
+        And(a=ng, b=false, out=ng0);
+        And(a=j10, b=ng0, out=jng0);
+
+        // JLT, JNE, JLE, all jump if j1==1 && not(ng == 1 || zr == 1)
+        And(a=instruction[2], b=true, out=j11);
+        Or(a=zr, b=ng, out=ZeroOrMinus1);
+        And(a=j11, b=ZeroOrMinus1, out=jng1);
+
+        // Unconditional Jump
+        And(a=instruction[0], b=true, out=true0);
+        And(a=true0, b=instruction[1], out=true01);
+        And(a=true01, b=instruction[2], out=true012);
+
+        // Jump if (jng0==1 || jng1==1 || 012true==1) && 012false!=1
+        Or8Way(
+            in[0]=jng0,
+            in[1]=jng1,
+            in[2]=true012,
+            in[3]=notNullJump,
+            in[4]=false,
+            in[5]=false,
+            in[6]=false,
+            in[7]=false,
+            out=jump
+        );
+        Not(in=jump, out=Inc);
+
+        PC(in=aToPC, load=jump, inc=Inc, reset=reset, out[0..14]=pc);
+
 }
