@@ -80,42 +80,40 @@ CHIP CPU {
         // Jumps
         // zr, // 1 if out=0, 0 otherwise
         // ng; // 1 if out<0, 0 otherwise
+        Not(in=ng, out=notNegative);
+        Not(in=zr, out=notZero);
+        Or(a=zr, b=ng, out=zeroOrNegative);
+        Not(in=zeroOrNegative, out=positive);
 
-        // null 0 0 0 - No jump
-        And(a=instruction[0], b=false, out=false0);
-        Xor(a=false0, b=instruction[1], out=false01);
-        Xor(a=false01, b=instruction[2], out=nullJump);
-        Not(in=nullJump, out=notNullJump);
+        And(a=instruction[0], b=positive, out=jgt);
+        And(a=instruction[1], b=zr, out=jeq);
 
-        // JGT, JEQ, JGE, all jump if j1==0 && ng=0
-        And(a=instruction[2], b=false, out=j10);
-        And(a=ng, b=false, out=ng0);
-        And(a=j10, b=ng0, out=jng0);
+        And(a=instruction[0], b=instruction[1], out=positiveOrZero);
+        And(a=positiveOrZero, b=notNegative, out=jge);
 
-        // JLT, JNE, JLE, all jump if j1==1 && not(ng == 1 || zr == 1)
-        And(a=instruction[2], b=true, out=j11);
-        Or(a=zr, b=ng, out=ZeroOrMinus1);
-        And(a=j11, b=ZeroOrMinus1, out=jng1);
+        And(a=instruction[2], b=ng, out=jlt);
 
-        // Unconditional Jump
-        And(a=instruction[0], b=true, out=true0);
-        And(a=true0, b=instruction[1], out=true01);
-        And(a=true01, b=instruction[2], out=true012);
+        And(a=instruction[0], b=instruction[2], out=jumpNotZero);
+        And(a=jumpNotZero, b=notZero, out=jne);
 
-        // Jump if (jng0==1 || jng1==1 || 012true==1) && 012false!=1
+        And(a=instruction[1], b=instruction[2], out=negativeOrZero);
+        And(a=negativeOrZero, b=zeroOrNegative, out=jle);
+
         Or8Way(
-            in[0]=jng0,
-            in[1]=jng1,
-            in[2]=true012,
-            in[3]=notNullJump,
-            in[4]=false,
-            in[5]=false,
-            in[6]=false,
-            in[7]=false,
-            out=jump
+            in[0]=jgt,
+            in[1]=jeq,
+            in[2]=jge,
+            in[3]=jlt,
+            in[4]=jne,
+            in[5]=jle,
+            in[6..7]=false,
+            out=j
         );
-        Not(in=jump, out=Inc);
 
-        PC(in=aToPC, load=jump, inc=Inc, reset=reset, out[0..14]=pc);
+        And(a=instruction[15], b=j, out=jump);
+
+        Not(in=jump, out=increment);
+
+        PC(in=aToPC, load=jump, inc=increment, reset=reset, out[0..14]=pc);
 
 }
