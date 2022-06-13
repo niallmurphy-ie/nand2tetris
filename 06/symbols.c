@@ -15,7 +15,7 @@ struct symbol
 	char *name;
 	int value;
 };
-struct symbol symbols[50000];
+struct symbol symbols[1000];
 
 int memoryLocation = 16;
 int symbolsCount = 0;

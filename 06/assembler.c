@@ -5,7 +5,7 @@
 #include "ainstruction.h"
 #include "symbols.h"
 
-void readFile(FILE *file, FILE *temp);
+int readFile(char *fileName);
 void removeComments(char *line);
 void assemble(char *fileName);
 
@@ -18,24 +18,16 @@ int main(int argc, char *argv[])
 		printf("Usage: %s <file>\n", argv[0]);
 		return 1;
 	}
-	// open file
-	FILE *file = fopen(argv[1], "r");
-	// check file exists
-	if (file == NULL)
+	char *fileName = strtok(argv[1], ".");
+	// Create temp file with formatted asm code
+	if (readFile(fileName) != 0)
 	{
-		printf("File %s not found\n", argv[1]);
+		printf("Error reading file\n");
 		return 1;
 	}
-	// create temporary file to write stripped lines to to
-	FILE *temp = fopen("temp.txt", "w");
-	// create temp file that can be worked on.
-	readFile(file, temp);
-	fclose(file);
-	fclose(temp);
-	char *fileName = strtok(argv[1], ".");
-	// Symbols
+	// Add symbols to temp file's code and create symbols.txt file
 	createSymbols();
-	// Create hack file
+	// Create hack file from symbols.txt file
 	assemble(fileName);
 	// Clean up
 	remove("temp.txt");
@@ -65,12 +57,25 @@ void assemble(char *fileName)
 }
 
 // function to read file
-void readFile(FILE *file, FILE *temp)
+int readFile(char *fileName)
 {
-	// read line by line
+	// copy fileName
+	char *tempName = malloc(strlen(fileName));
+	strcpy(tempName, fileName);
+	FILE *file = fopen(strcat(tempName, ".asm"), "r");
+	free(tempName);
+	// check file exists
+	if (file == NULL)
+	{
+		printf("File %s not found\n");
+		return 1;
+	}
+	// create temporary file to write stripped lines to to
+	FILE *temp = fopen("temp.txt", "w");
 	char line[100];
 	while (fgets(line, 100, file) != NULL)
 	{
+		// Strip whitespace and comments
 		removeComments(line);
 		// if line is not null or blank, write to temp file
 		if (strlen(line) > 0)
@@ -78,6 +83,10 @@ void readFile(FILE *file, FILE *temp)
 			fprintf(temp, "%s\n", line);
 		}
 	}
+	// close files
+	fclose(file);
+	fclose(temp);
+	return 0;
 }
 
 // remove comments that start with "//" and whitespace from each line
