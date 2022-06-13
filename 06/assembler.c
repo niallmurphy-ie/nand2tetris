@@ -3,10 +3,11 @@
 #include <stdlib.h>
 #include "cinstruction.h"
 #include "ainstruction.h"
+#include "symbols.h"
 
 void readFile(FILE *file, FILE *temp);
 void removeComments(char *line);
-void assemble(FILE *temp, FILE *hack);
+void assemble(char *fileName);
 
 // main function with one file argument
 int main(int argc, char *argv[])
@@ -31,27 +32,24 @@ int main(int argc, char *argv[])
 	readFile(file, temp);
 	fclose(file);
 	fclose(temp);
-	// create new .hack file to write to with same name as argument filename while removing .asm
-	FILE *hack = fopen(strcat(strtok(argv[1], "."), ".hack"), "w");
-	// send temp and hack to function to translate to binary code
-	// reopen temp so reading works
-	temp = fopen("temp.txt", "r");
-	assemble(temp, hack);
-	// close files
-	fclose(temp);
-	fclose(hack);
+	char *fileName = strtok(argv[1], ".");
+	// Symbols
+	createSymbols();
+	// Create hack file
+	assemble(fileName);
+	// Clean up
+	remove("temp.txt");
+	remove("symbols.txt");
 }
 
-void assemble(FILE *temp, FILE *hack)
+void assemble(char *fileName)
 {
+	FILE *hack = fopen(strcat(fileName, ".hack"), "w");
+	FILE *temp = fopen("symbols.txt", "r");
 	printf("Assembling...\n");
-	// read line from temp file
 	char line[100];
-	// line isn't empty
 	while (fgets(line, 100, temp) != NULL)
 	{
-		printf("%s", line);
-		// if first character is @
 		if (line[0] == '@')
 		{
 			ainstruction(line, hack);
@@ -61,9 +59,10 @@ void assemble(FILE *temp, FILE *hack)
 			cinstruction(line, hack);
 		}
 	}
+	// close files
+	fclose(temp);
+	fclose(hack);
 }
-
-
 
 // function to read file
 void readFile(FILE *file, FILE *temp)
@@ -72,40 +71,36 @@ void readFile(FILE *file, FILE *temp)
 	char line[100];
 	while (fgets(line, 100, file) != NULL)
 	{
-		// remove comments
 		removeComments(line);
 		// if line is not null or blank, write to temp file
-		if (strlen(line) > 1)
+		if (strlen(line) > 0)
 		{
-			fprintf(temp, "%s", line);
+			fprintf(temp, "%s\n", line);
 		}
 	}
-}
-
-// decimalToBinary
-char *decimalToBinary(char *decimal)
-{
-	// convert decimal to int k
-	int k = atoi(decimal);
-	char *buffer = malloc(16);
-	itoa(k, buffer, 2);
-	printf("%s\n", buffer);
-	return buffer;
 }
 
 // remove comments that start with "//" and whitespace from each line
 void removeComments(char *line)
 {
+	char newLine[100];
+	int charNumber = 0;
+	// remove whitespace
+	for (int i = 0; i < strlen(line); i++)
+	{
+		if (line[i] != ' ' && line[i] != '\n')
+		{
+			newLine[charNumber] = line[i];
+			charNumber++;
+		}
+	}
+	newLine[charNumber] = '\0';
 	// remove comments
-	char *comment = strstr(line, "//");
+	char *comment = strstr(newLine, "//");
 	if (comment != NULL)
 	{
 		*comment = '\0';
 	}
-	// remove whitespace
-	char *whitespace = strstr(line, " ");
-	if (whitespace != NULL)
-	{
-		*whitespace = '\0';
-	}
+	// replace line with new line
+	strcpy(line, newLine);
 }

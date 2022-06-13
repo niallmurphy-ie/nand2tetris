@@ -10,7 +10,7 @@ void jump(char *line, char *binary);
 void cinstruction(char *line, FILE *hack)
 {
 	// create binary string that is 16 characters long
-	char *binary = malloc(17);
+	char binary[17];
 	for (int i = 0; i < 16; i++)
 	{
 		if (i < 3)
@@ -22,13 +22,11 @@ void cinstruction(char *line, FILE *hack)
 			binary[i] = '0';
 		}
 	}
-	printf("BINARY TO START WITH: %s\n", binary);
+	binary[16] = '\0';
 	// modify binary directly and return how many characters should be removed before comp
 	int removeDest = dest(line, binary);
-	// removeDest characters before comp
-	comp(line + removeDest, binary);
+	comp(line + removeDest, binary); // removeDest characters before comp
 	jump(line, binary);
-	binary[16] = '\0';
 	fprintf(hack, "%s\n", binary);
 }
 
